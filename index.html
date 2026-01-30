@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VyaparX</title>
+    <link rel="icon" type="image/png" href="icon-512.png">
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4f46e5">
+    <link rel="apple-touch-icon" href="icon-192.png">
+</head>
+
+<body>
+    <div id="mobileTopBar">
+        <button id="burgerBtn" onclick="toggleSidebar()">☰</button>
+        <div id="mobileShopName"></div>
+    </div>
+
+    <div id="loginScreen" style="position:fixed; inset:0; background:#0f172a; display:flex; align-items:center; justify-content:center; z-index:9999;">
+        <div style="background:white; padding:30px; border-radius:12px; width:320px">
+            
+            <div id="loginBox">
+                <h2 style="margin-bottom:15px; text-align:center">Account Login</h2>
+                <input id="loginShopId" placeholder="Shop ID" style="width:100%; padding:10px; margin-bottom:10px">
+                <input id="loginPhone" placeholder="Phone Number" style="width:100%; padding:10px; margin-bottom:15px">
+                <button onclick="loginShop()" style="width:100%; padding:12px; background:#4f46e5; color:white; border:none; border-radius:8px">Login</button>
+                <p onclick="showSignup()" style="cursor:pointer; text-align:center; margin-top:10px">Create New Account</p>
+            </div>
+
+            <div id="signupBox" style="display:none">
+                <h2 style="margin-bottom:15px; text-align:center">Create New Account</h2>
+                <input id="sShop" placeholder="Shop Name" style="width:100%; padding:10px; margin-bottom:8px" oninput="this.value=this.value.toUpperCase()">
+                <input id="sOwner" placeholder="Owner Name" style="width:100%; padding:10px; margin-bottom:8px">
+                <input id="sPhone" placeholder="Phone" style="width:100%; padding:10px; margin-bottom:8px">
+                <textarea id="sAddr" placeholder="Address" style="width:100%; padding:10px; margin-bottom:8px"></textarea>
+                <input id="sGst" placeholder="GST (optional)" style="width:100%; padding:10px; margin-bottom:12px">
+                <button onclick="signupShop()" style="width:100%; padding:12px; background:#16a34a; color:white; border:none; border-radius:8px">Create</button>
+                <p onclick="showLogin()" style="cursor:pointer; text-align:center; margin-top:10px">Already have Account? Login</p>
+            </div>
+
+        </div>
+    </div>
+
+    <div id="loader" class="full-loader hidden">
+
+      <div class="loader">
+        <div class="loader__inner"></div>
+        <div class="loader__orbit">
+          <div class="loader__dot"></div>
+          <div class="loader__dot"></div>
+          <div class="loader__dot"></div>
+          <div class="loader__dot"></div>
+        </div>
+      </div>
+
+      <p style="margin-top:20px;font-weight:600;color:white">Processing…</p>
+
+    </div>
+
+    <aside class="sidebar" id="mobileHeader">
+        <div class="logo"></div>
+        <div class="nav-item active" onclick="switchPage('invoice', this)">New Invoice</div>
+        <div class="nav-item" onclick="switchPage('history', this)">Invoice History</div>
+        <div class="nav-item" onclick="switchPage('emi-records', this)">EMI Records</div>
+        <div class="nav-item" id="overdueNav" onclick="switchPage('overdue-emi', this)">
+            Overdue EMI
+            <span id="overdueDot" class="overdue-dot"></span>
+        </div>
+        <div class="sidebar-footer">
+            <div class="nav-item logout" onclick="logoutShop()">Logout</div>
+        </div>
+    </aside>
+    
+    <div id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+    <main class="main-content" id="scrollArea">
+
+        <div id="page-invoice" class="content-page active">
+            <h1>New Invoice</h1><br>
+
+            <div class="grid-2">
+                <div class="card">
+                    <label>Customer Info</label>
+                    <input type="text" id="cName" placeholder="Customer Name *" style="margin-bottom:10px;">
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                        <input type="text" id="cPhone" placeholder="Mobile Number *">
+                        <input type="text" id="cAltPhone" placeholder="Alternate Phone Number">
+                    </div>
+                    <input type="text" id="cAddr" placeholder="Full Address">
+                </div>
+
+                <div class="card">
+                    <label>Invoice Details</label>
+                    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px;">
+                        <input type="text" id="invNo" readonly style="background:#f1f5f9">
+                        <input type="date" id="invDate">
+                    </div>
+                    <select id="payMode" onchange="toggleEmiUI()">
+                        <option value="Cash">Cash</option>
+                        <option value="UPI">UPI</option>
+                        <option value="Card">Card</option>
+                        <option value="EMI">EMI Finance</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="card">
+                <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+                    <h3>Product Items</h3>
+                    <button class="btn-add" onclick="addItemRow()">+ Add Item</button>
+                </div>
+
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Item Description</th>
+                                <th style="width:100px;">Qty</th>
+                                <th>Rate</th>
+                                <th>Total</th>
+                                <th style="width:40px;"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="itemsBody"></tbody>
+                    </table>
+                </div>
+
+                <div class="summary-box" style="margin-top:20px;">
+                    <div style="display:flex; justify-content:space-between;">
+                        <span>Taxable Value</span><span id="taxVal">0.00</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-top:5px;">
+                        <span>CGST (9%)</span><span id="cgstVal">0.00</span>
+                    </div>
+                    <div style="display:flex; justify-content:space-between; margin-top:5px;">
+                        <span>SGST (9%)</span><span id="sgstVal">0.00</span>
+                    </div>
+                    <div style="border-top:2px solid var(--primary); margin-top:10px; padding-top:10px;">
+                        <label>Grand Total</label>
+                        <input type="number" id="grandInput" oninput="calculateTotal()" style="width:100%; text-align:right; border:none; background:transparent; font-weight:800; color:var(--primary); font-size:22px;">
+                    </div>
+                </div>
+            </div>
+
+            <div id="emiSection" class="card hidden">
+                <h3 style="color:var(--success); margin-bottom:15px;">EMI Finance Details</h3>
+                <div class="grid-4">
+                    <div><label>Down Payment (₹)</label><input type="number" id="downPay" oninput="calculateEMI()"></div>
+                    <div><label>Tenure (Months)</label><input type="number" id="months" value="6" oninput="calculateEMI()"></div>
+                    <div><label>Interest (% PM)</label><input type="number" id="interest" value="4" oninput="calculateEMI()"></div>
+                    <div><label>File Charge (₹)</label><input type="number" id="fileCharge" oninput="calculateEMI()"></div>
+                </div>
+
+                <div class="grid-4" style="margin-top:15px;">
+                    <div><label>Father's Name</label><input type="text" id="fName"></div>
+                    <div><label>Aadhar Number</label><input type="text" id="aadhar"></div>
+                    <div><label>First EMI Date</label><input type="date" id="emiStart"></div>
+                    <div><label>PAN Number *</label><input type="text" id="pan" style="text-transform:uppercase"></div>
+                    <div><label>Customer Photo *</label><input type="file" id="custImage" accept="image/*" capture="environment"></div>
+                </div>
+
+                <div style="background:#f0fdf4; padding:20px; border-radius:12px; margin-top:20px; display:flex; justify-content:space-between; border:1px solid #bbf7d0;">
+                    <div>
+                        <label>Monthly EMI</label>
+                        <h2 id="emiLabel" style="color:var(--success); font-size:30px;">₹ 0.00</h2>
+                    </div>
+                    <div style="text-align:right">
+                        Total Loan (Incl. FC): ₹<span id="loanAmt">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bottom-bar">
+                <button class="btn-main" onclick="saveInvoice()">SAVE & GENERATE PDF</button>
+            </div>
+        </div>
+
+        <div id="page-history" class="content-page">
+            <h1>Invoice History</h1>
+            <div class="card" style="margin-top:15px;">
+                <div class="grid-2">
+                    <div><label>Search by Customer Name</label><input type="text" id="invSearchName" oninput="filterInvoiceHistory()"></div>
+                    <div><label>Search by Invoice No</label><input type="text" id="invSearchNo" oninput="filterInvoiceHistory()"></div>
+                </div>
+            </div>
+            <div class="card" style="margin-top:20px;">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Inv No</th>
+                                <th>Date</th>
+                                <th>Customer</th>
+                                <th>Amount</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="historyBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-emi-records" class="content-page">
+            <h1>EMI Finance Records</h1>
+            <div class="card" style="margin-top:15px;">
+                <div class="grid-2">
+                    <div><label>Search by Customer Name</label><input type="text" id="emiSearchName" oninput="filterEmiRecords()"></div>
+                    <div><label>Search by Invoice No</label><input type="text" id="emiSearchNo" oninput="filterEmiRecords()"></div>
+                </div>
+            </div>
+            <div class="card" style="margin-top:20px;">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Inv No</th>
+                                <th>Customer</th>
+                                <th>Contact</th>
+                                <th>EMI Amt</th>
+                                <th>Next Due</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="emiRecordBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-overdue-emi" class="content-page">
+            <h1>Overdue EMI</h1>
+            <div class="card" style="margin-top:15px;">
+                <div class="grid-2">
+                    <div>
+                        <label>Total Overdue Items</label>
+                        <h2 id="totalDueCount" style="font-size:30px; color:var(--danger);">0</h2>
+                    </div>
+                    <div>
+                        <label>Total Overdue Amount</label>
+                        <h2 style="font-size:30px; color:var(--danger);">₹ <span id="totalDueAmount">0.00</span></h2>
+                    </div>
+                </div>
+            </div>
+            <div class="card" style="margin-top:15px;">
+                <div class="grid-2">
+                    <div><label>Search Customer</label><input type="text" id="overdueSearchName" oninput="filterOverdueEmi()"></div>
+                    <div><label>Search Invoice</label><input type="text" id="overdueSearchNo" oninput="filterOverdueEmi()"></div>
+                </div>
+            </div>
+            <div class="card" style="margin-top:20px;">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Inv No</th>
+                                <th>Customer</th>
+                                <th>Contact</th>
+                                <th>EMI Amt</th>
+                                <th>EMI Date</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="overdueEmiBody"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="scheduleModal" class="modal-overlay hidden">
+            <div class="modal-card">
+                <div class="modal-header">
+                    <div>
+                        <h2 id="modalInvNo" style="color:var(--primary);">EMI Schedule: #---</h2>
+                        <p id="modalCustName" style="color:var(--text-muted); font-weight:600;">Customer: ---</p>
+                    </div>
+                    <button onclick="closeModal()" style="border:none; background:#f1f5f9; width:40px; height:40px; border-radius:50%; font-size:20px; cursor:pointer;">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <div class="table-container">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>No.</th>
+                                    <th>Due Date</th>
+                                    <th>Amount</th>
+                                    <th>Status</th>
+                                    <th>Paid On</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="scheduleBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <div style="text-align:center; font-size:11px; color:#64748b; margin-top:12px;">
+                © 2026 VyaparX . ERP System<br>
+                Developed by Narender Verma
+            </div>
+        </footer>
+
+    </main>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
