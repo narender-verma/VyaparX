@@ -6,8 +6,8 @@ const API_KEY = "NV26182155";
 // 1. GLOBAL HELPERS (Utility Functions)
 // ==========================================
 
-let EMI_INVOICES_CACHE = [];
-let EMI_SCHEDULE_CACHE = [];
+EMI_SCHEDULE_CACHE = [];
+EMI_INVOICES_CACHE = [];
 
 function isEmpty(v) { return v === null || v === undefined || String(v).trim() === ""; }
 
@@ -17,42 +17,167 @@ function showError(msg) {
     throw new Error(msg);
 }
 
-function showLoader(s) { 
+function getActiveSheetId(){
+
+    return localStorage.getItem("activeFYSheet")
+        || localStorage.getItem("sheetId");
+}
+
+function showLoader(show, text = "Processing...") { 
     const loader = document.getElementById('loader');
-    if(loader) loader.classList.toggle('hidden', !s); 
+    const txt = document.getElementById('loaderText');
+
+    if(loader) loader.classList.toggle('hidden', !show);
+    if(txt && show) txt.innerText = text;
+}
+
+function getCurrentFY(){
+
+    const now = new Date();
+
+    const y = now.getFullYear();
+    const m = now.getMonth() + 1;
+
+    return m >= 4
+        ? `${y}-${String(y + 1).slice(-2)}`
+        : `${y - 1}-${String(y).slice(-2)}`;
+}
+
+function checkArchivedFY(){
+
+    const activeFY =
+        localStorage.getItem("activeFY")
+        || "";
+
+    const currentFY = getCurrentFY();
+
+    const watermark = document.getElementById("fyWatermark");
+    const text = document.getElementById("fyWatermarkText");
+
+    if(activeFY && activeFY !== currentFY){
+
+        watermark.classList.remove("hidden");
+
+        text.innerHTML =
+            `ARCHIVED FY<br>${activeFY}`;
+
+    }else{
+
+        watermark.classList.add("hidden");
+    }
+}
+
+function isFYLocked(){
+
+    const activeFY =
+        localStorage.getItem("activeFY");
+
+    if(!activeFY) return false;
+
+    const now = new Date();
+
+    const currentFY = getCurrentFY();
+
+    // current FY active hai
+    if(activeFY === currentFY){
+        return false;
+    }
+
+    // 1 May lock
+    const fyStartYear =
+        Number(activeFY.split("-")[0]);
+
+    const lockDate =
+        new Date(fyStartYear + 1, 4, 1); // 1 May
+
+    return now >= lockDate;
+}
+
+function updateFYLockUI(){
+
+    const locked = isFYLocked();
+
+    const btn =
+        document.getElementById("saveInvoiceBtn");
+
+    if(btn){
+
+        btn.disabled = locked;
+
+        btn.style.opacity =
+            locked ? "0.6" : "1";
+
+        btn.innerText = locked
+            ? "FY END"
+            : "SAVE & GENERATE PDF";
+    }
 }
 
 function formatDisplayDate(dateStr) {
 
-  if (!dateStr) return "-";
+    if (!dateStr) return "-";
 
-  const d = new Date(dateStr);
+    const d = new Date(dateStr);
 
-  if (isNaN(d.getTime())) return dateStr;
+    if (isNaN(d.getTime())) return dateStr;
 
-  return d.toLocaleDateString("en-GB", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric"
-  }).replace(/ /g, "-");
+    return d.toLocaleDateString("en-GB", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric"
+    }).replace(/ /g, "-");
 
+}
+
+function parseIndianDate(dateStr) {
+
+    if (!dateStr) return new Date(0);
+
+    // already date object
+    if (dateStr instanceof Date) {
+        return isNaN(dateStr) ? new Date(0) : dateStr;
+    }
+
+    const str = String(dateStr).trim();
+
+    // yyyy-MM-dd
+    if (/^\d{4}-\d{2}-\d{2}$/.test(str)) {
+        return new Date(str + "T00:00:00");
+    }
+
+    // dd-MM-yyyy
+    if (/^\d{2}-\d{2}-\d{4}$/.test(str)) {
+
+        const [dd, mm, yyyy] = str.split("-");
+
+        return new Date(
+            Number(yyyy),
+            Number(mm) - 1,
+            Number(dd)
+        );
+    }
+
+    // fallback
+    const d = new Date(str);
+
+    return isNaN(d) ? new Date(0) : d;
 }
 
 async function loadEmiData(){
 
-  if(EMI_INVOICES_CACHE.length && EMI_SCHEDULE_CACHE.length){
+if(EMI_INVOICES_CACHE.length && EMI_SCHEDULE_CACHE.length){
     return;
-  }
+}
 
-  const sheetId = localStorage.getItem("sheetId");
+const sheetId = getActiveSheetId();
 
-  const [inv, sch] = await Promise.all([
+const [inv, sch] = await Promise.all([
     fetch(`${SCRIPT_URL}?action=emiInvoices&sheetId=${sheetId}&key=${API_KEY}`).then(r=>r.json()),
     fetch(`${SCRIPT_URL}?action=emiSchedule&sheetId=${sheetId}&key=${API_KEY}`).then(r=>r.json())
-  ]);
+]);
 
-  EMI_INVOICES_CACHE = inv;
-  EMI_SCHEDULE_CACHE = sch;
+EMI_INVOICES_CACHE = inv;
+EMI_SCHEDULE_CACHE = sch;
 }
 
 function safeGetStorage(key) { try { return localStorage.getItem(key); } catch (e) { return null; } }
@@ -105,8 +230,8 @@ function switchPage(page, el) {
     updateOverdueIndicator();
     // Auto close sidebar on mobile after navigation
     if(window.innerWidth <= 850){
-      document.querySelector(".sidebar").classList.remove("open");
-      document.getElementById("sidebarOverlay").classList.remove("show");
+    document.querySelector(".sidebar").classList.remove("open");
+    document.getElementById("sidebarOverlay").classList.remove("show");
     }
 
 }
@@ -139,8 +264,8 @@ function addItemRow() {
     const tr = document.createElement('tr');
     tr.innerHTML = `
     <td>
-      <input type="text" class="p-name" placeholder="Item Name">
-      <textarea class="p-note" placeholder="IMEI/SN (Press Enter for 2nd row)"></textarea>
+    <input type="text" class="p-name" placeholder="Item Name">
+    <textarea class="p-note" placeholder="IMEI/SN (Press Enter for 2nd row)"></textarea>
     </td>
     <td><input type="number" class="p-qty" value="1" oninput="calculateTotal()"></td>
     <td><input type="number" class="p-rate" readonly style="background:#f8fafc"></td>
@@ -193,7 +318,17 @@ function calculateEMI() {
 // ==========================================
 
 async function saveInvoice() {
-    showLoader(true);
+
+    if(isFYLocked()){
+
+        alert(
+            "This Financial Year is locked. New invoices cannot be created."
+        );
+
+        return;
+    }
+
+    showLoader(true, "Generating Invoice...");
     try {
         // Validation
         if (isEmpty(cName.value)) showError("Customer Name is required");
@@ -251,7 +386,7 @@ async function saveInvoice() {
         const fd = new FormData();
         fd.append("action", "createInvoice");
         fd.append("data", JSON.stringify(payload));
-        fd.append("sheetId", localStorage.getItem("sheetId"));
+        fd.append("sheetId", getActiveSheetId());
         fd.append("key", API_KEY);
 
         const res = await fetch(SCRIPT_URL, { method: "POST", body: fd });
@@ -263,7 +398,7 @@ async function saveInvoice() {
         resetInvoiceForm();
         await initERP();
         await fetchHistory();
-
+        
     } catch (e) {
         console.error(e);
         if(e.message) alert(e.message);
@@ -273,28 +408,31 @@ async function saveInvoice() {
 
 async function fetchHistory() {
     try {
-        const sheetId = localStorage.getItem("sheetId");
+        const sheetId = getActiveSheetId();
         if(!sheetId){
-          alert("Shop not logged in");
-          return;
+        alert("Shop not logged in");
+        return;
         }
 
         const res = await fetch(`${SCRIPT_URL}?action=allInvoices&sheetId=${sheetId}&key=${API_KEY}`);
         const data = await res.json();
 
-        document.getElementById('historyBody').innerHTML = data.reverse().map(inv => `
+        document.getElementById('historyBody').innerHTML = [...data] // 🔥 clone
+        .sort((a, b) => parseIndianDate(b.Date) - parseIndianDate(a.Date))
+        .map(inv => `
             <tr>
                 <td><b>${inv.InvoiceNo}</b></td>
                 <td>${formatDisplayDate(inv.Date)}</td>
                 <td>${inv.Customer}</td>
                 <td>₹${inv.GrandTotal}</td>
                 <td>
-                  <div class="action-cell">
+                <div class="action-cell">
                     <button class="btn-action btn-view" onclick="window.open('${inv.PDF}','_blank')">Invoice</button>
                     <button class="btn-action btn-del" onclick="deleteInvoice('${inv.InvoiceNo}')">Delete</button>
-                  </div>
+                </div>
                 </td>
             </tr>`).join('');
+
     } catch(e) { 
         console.error(e); 
         alert("Failed to load invoice history");
@@ -306,12 +444,12 @@ async function deleteInvoice(id) {
 
     if(!confirm("Are you sure you want to delete Invoice " + id + "?")) return;
 
-    showLoader(true);
+    showLoader(true, "Deleting Invoice...");
 
-    const sheetId = localStorage.getItem("sheetId");
+    const sheetId = getActiveSheetId();
     if(!sheetId){
-      alert("Shop not logged in");
-      return;
+    alert("Shop not logged in");
+    return;
     }
 
     const fd = new FormData();
@@ -321,13 +459,13 @@ async function deleteInvoice(id) {
     fd.append("key", API_KEY);
 
     await fetch(SCRIPT_URL,{
-  method:"POST",
-  body:fd
-   });
+method:"POST",
+body:fd
+});
 
-   await fetchHistory();
+await fetchHistory();
 
-   showLoader(false);
+showLoader(false);
 
 }
 
@@ -337,12 +475,12 @@ async function deleteInvoice(id) {
 // ==========================================
 async function fetchEmiRecords() {
     try {
-        const sheetId = localStorage.getItem("sheetId");
+        const sheetId = getActiveSheetId();
 
         let totalPendingCount = 0;
         let totalPendingAmount = 0;
 
-       await loadEmiData();
+        await loadEmiData();
 
         const invoices = EMI_INVOICES_CACHE;
         const schedule = EMI_SCHEDULE_CACHE;
@@ -350,8 +488,12 @@ async function fetchEmiRecords() {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        document.getElementById('emiRecordBody').innerHTML = invoices.reverse().map(inv => {
+        document.getElementById('emiRecordBody').innerHTML = [...invoices] // 🔥 clone
+        .sort((a, b) => parseIndianDate(b.Date) - parseIndianDate(a.Date))
+        .map(inv => {
+
             const s = schedule.filter(x => String(x.InvoiceNo) === String(inv.InvoiceNo));
+
             // 🔴 TOTAL PENDING CALCULATION
             s.forEach(x => {
                 if (x.Status === "Pending") {
@@ -359,13 +501,16 @@ async function fetchEmiRecords() {
                     totalPendingAmount += Number(x.EMI_Amount) || 0;
                 }
             });
+
             const pend = s.find(x => x.Status === "Pending");
             const isComplete = !pend && s.length > 0;
             
             let statusClass = isComplete ? 'row-paid-complete' : '';
+
             if (pend) {
                 const dueDate = new Date(pend.EMI_Date);
                 dueDate.setHours(0, 0, 0, 0);
+
                 if (dueDate <= today) statusClass = 'row-overdue';
             }
 
@@ -378,14 +523,16 @@ async function fetchEmiRecords() {
                 <td style="text-align:center;">
                     <button class="schedule-icon" onclick="openSchedule('${inv.InvoiceNo}', '${inv.Customer}')">
                         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                            <path d="M7 2V5M17 2V5M3 9H21M5 5H19 C20.1046 5 21 5.89543 21 7V19 C21 20.1046 20.1046 21 19 21H5 C3.89543 21 3 20.1046 3 19V7 C3 5.89543 3.89543 5 5 5Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M7 2V5M17 2V5M3 9H21M5 5H19 C20.1046 5 21 5.89543 21 7V19 C21 20.1046 20.1046 21 19 21H5 C3.89543 21 3 20.1046 3 19V7 C3 5.89543 3 5 5 5Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
                         </svg>
                     </button>
                 </td>
             </tr>`;
         }).join('');
+
         document.getElementById("totalPendingCount").innerText = totalPendingCount;
         document.getElementById("totalPendingAmount").innerText = totalPendingAmount.toFixed(2);
+
     } catch(e) { console.error(e); }
 }
 
@@ -394,20 +541,20 @@ async function fetchEmiRecords() {
 // ==========================================
 async function fetchOverdueEmi() {
     try {
-        const sheetId = localStorage.getItem("sheetId");
+        const sheetId = getActiveSheetId();
 
         await loadEmiData();
 
         const invoices = EMI_INVOICES_CACHE;
         const schedule = EMI_SCHEDULE_CACHE;
 
-
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
         let totalDueCount = 0;
         let totalDueAmount = 0;
-        const rows = [];
+
+        const rowsData = []; // 🔥 changed (for sorting)
 
         invoices.forEach(inv => {
             const emiList = schedule.filter(s => String(s.InvoiceNo) === String(inv.InvoiceNo) && s.Status !== "Paid");
@@ -431,36 +578,46 @@ async function fetchOverdueEmi() {
                 const reminderKey = getReminderKey(inv.InvoiceNo, s.EMI_Date);
                 const isSentToday = safeGetStorage(reminderKey) === "sent";
 
-                rows.push(`<tr class="${rowClass}">
-                    <td><b>${inv.InvoiceNo}</b></td>
-                    <td>${inv.Customer}</td>
-                    <td>${inv.Phone || "-"}</td>
-                    <td>₹${s.EMI_Amount}</td>
-                    <td>${formatDisplayDate(s.EMI_Date)}</td>
-                    <td style="text-align:center;">
-                        <div class="icon-action-wrap-col">
-                            <div class="icon-row">
-                                <button class="schedule-icon" onclick="openSchedule('${inv.InvoiceNo}', '${inv.Customer}')">
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path d="M7 2V5M17 2V5M3 9H21M5 5H19 C20.1046 5 21 5.89543 21 7V19 C21 20.1046 20.1046 21 19 21H5 C3.89543 21 3 20.1046 3 19V7 C3 5.89543 3.89543 5 5 5Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                                    </svg>
-                                </button>
-                                ${inv.Phone ? `<a href="tel:${inv.Phone}" class="call-icon">☎</a>` : ""}
+                rowsData.push({
+                    date: emiDate,
+                    html: `<tr class="${rowClass}">
+                        <td><b>${inv.InvoiceNo}</b></td>
+                        <td>${inv.Customer}</td>
+                        <td>${inv.Phone || "-"}</td>
+                        <td>₹${s.EMI_Amount}</td>
+                        <td>${formatDisplayDate(s.EMI_Date)}</td>
+                        <td style="text-align:center;">
+                            <div class="icon-action-wrap-col">
+                                <div class="icon-row">
+                                    <button class="schedule-icon" onclick="openSchedule('${inv.InvoiceNo}', '${inv.Customer}')">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                            <path d="M7 2V5M17 2V5M3 9H21M5 5H19 C20.1046 5 21 5.89543 21 7V19 C21 20.1046 20.1046 21 19 21H5 C3.89543 21 3 20.1046 3 19V7 C3 5.89543 3 5 5 5Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                                        </svg>
+                                    </button>
+                                    ${inv.Phone ? `<a href="tel:${inv.Phone}" class="call-icon">☎</a>` : ""}
+                                </div>
+                                ${inv.Phone ? `
+                                    <button class="whatsapp-btn ${isSentToday ? "sent" : ""}" 
+                                        onclick="sendWhatsappReminder('${inv.InvoiceNo}','${s.EMI_Date}','${inv.Phone}','${waText}',this)">
+                                        ${isSentToday ? "Sent ✔" : "WhatsApp"}
+                                    </button>` : ""}
                             </div>
-                            ${inv.Phone ? `
-                                <button class="whatsapp-btn ${isSentToday ? "sent" : ""}" 
-                                    onclick="sendWhatsappReminder('${inv.InvoiceNo}','${s.EMI_Date}','${inv.Phone}','${waText}',this)">
-                                    ${isSentToday ? "Sent ✔" : "WhatsApp"}
-                                </button>` : ""}
-                        </div>
-                    </td>
-                </tr>`);
+                        </td>
+                    </tr>`
+                });
             });
         });
 
+        // 🔥 SORT (latest first)
+        rowsData.sort((a, b) => a.date - b.date);
+
         document.getElementById("totalDueCount").innerText = totalDueCount;
         document.getElementById("totalDueAmount").innerText = totalDueAmount.toFixed(2);
-        document.getElementById("overdueEmiBody").innerHTML = rows.length ? rows.join("") : `<tr><td colspan="6" style="text-align:center;">No Due EMI 🎉</td></tr>`;
+
+        document.getElementById("overdueEmiBody").innerHTML =
+            rowsData.length
+                ? rowsData.map(r => r.html).join("")
+                : `<tr><td colspan="6" style="text-align:center;">No Due EMI 🎉</td></tr>`;
 
         // Update dot indicator
         const dot = document.getElementById("overdueDot");
@@ -480,37 +637,114 @@ async function fetchOverdueEmi() {
 // 5. EMI SCHEDULE & WHATSAPP
 // ==========================================
 async function openSchedule(id, custName) {
+
     document.getElementById('scheduleModal').classList.remove('hidden');
-    document.getElementById('modalInvNo').innerText = "EMI Schedule: #" + id;
-    document.getElementById('modalCustName').innerText = "Customer: " + custName;
+
+    document.getElementById('modalInvNo').innerText =
+        "EMI Schedule: #" + id;
+
+    document.getElementById('modalCustName').innerText =
+        "Customer: " + custName;
+
     const tbody = document.getElementById('scheduleBody');
-    tbody.innerHTML = "<tr><td colspan='6' style='text-align:center;'>Syncing...</td></tr>";
-    
+
+    tbody.innerHTML =
+        "<tr><td colspan='6' style='text-align:center;'>Syncing...</td></tr>";
+
     try {
-        const sheetId = localStorage.getItem("sheetId");
+
         await loadEmiData();
+
         const data = EMI_SCHEDULE_CACHE;
-        const filtered = data.map((s, i) => ({...s, row: i+2})).filter(s => String(s.InvoiceNo) === String(id));
-        
+
+        const filtered = data
+            .map((s, i) => ({ ...s, row: i + 2 }))
+            .filter(s => String(s.InvoiceNo) === String(id))
+            .sort((a, b) =>
+                parseIndianDate(a.EMI_Date) -
+                parseIndianDate(b.EMI_Date)
+            );
+
         tbody.innerHTML = filtered.map((s, index) => `
-            <tr><td>#${index+1}</td><td>${formatDisplayDate(s.EMI_Date)}</td><td>₹${s.EMI_Amount}</td>
-            <td><span class="badge ${s.Status==='Paid'?'badge-paid':'badge-pending'}">${s.Status}</span></td>
-            <td>${s.PaidDate?formatDisplayDate(s.PaidDate):'—'}</td>
-            <td>${s.Status==='Pending'?`<button class="btn-main" style="padding:5px 10px; font-size:11px;" onclick="markPaid(${s.row},'${id}','${custName}')">Receive</button>`:'✔'}</td></tr>`).join('');
-    } catch(e) { tbody.innerHTML = "Error loading schedule."; }
+            <tr>
+                <td>#${index + 1}</td>
+                <td>${formatDisplayDate(s.EMI_Date)}</td>
+                <td>₹${s.EMI_Amount}</td>
+
+                <td>
+                    <span class="badge ${
+                        s.Status === 'Paid'
+                        ? 'badge-paid'
+                        : 'badge-pending'
+                    }">
+                        ${s.Status}
+                    </span>
+                </td>
+
+                <td>
+                    ${s.PaidDate
+                        ? formatDisplayDate(s.PaidDate)
+                        : '—'}
+                </td>
+
+                <td>
+                    ${
+                        s.Status === 'Pending'
+                        ? `
+                        <button
+                            class="btn-main"
+                            style="padding:5px 10px;font-size:11px;"
+                            onclick="markPaid(${s.row},'${id}','${custName}')">
+                            Receive
+                        </button>
+                        `
+                        : '✔'
+                    }
+                </td>
+            </tr>
+        `).join('');
+
+    } catch (e) {
+
+        console.error(e);
+
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="6"
+                    style="text-align:center;color:red;">
+                    Failed to load EMI schedule
+                </td>
+            </tr>
+        `;
+    }
 }
 
 async function markPaid(row, id, custName) {
-    showLoader(true);
-    const fd = new FormData(); 
-    fd.append("action", "markEmiPaid");
-    fd.append("rowIndex", row);
-    fd.append("sheetId", localStorage.getItem("sheetId"));
-    fd.append("key", API_KEY);
-    await fetch(SCRIPT_URL, { method: "POST", body: fd });
-    openSchedule(id, custName); 
-    fetchEmiRecords();
-    updateOverdueIndicator();
+    showLoader(true, "Saving EMI...");
+
+    try {
+        const fd = new FormData(); 
+        fd.append("action", "markEmiPaid");
+        fd.append("rowIndex", row);
+        fd.append("sheetId", getActiveSheetId());
+        fd.append("key", API_KEY);
+
+        await fetch(SCRIPT_URL, { method: "POST", body: fd });
+
+        // ⚡ cache refresh (important)
+        EMI_SCHEDULE_CACHE = [];
+        EMI_INVOICES_CACHE = [];
+
+        await openSchedule(id, custName); 
+        await fetchEmiRecords();
+        await updateOverdueIndicator();
+
+    } catch (e) {
+        console.error(e);
+        alert("Failed to update EMI");
+    }
+
+    showLoader(false); // ✅ FIX
 }
 
 function sendWhatsappReminder(invoiceNo, emiDate, phone, waText, btn) {
@@ -525,7 +759,7 @@ function sendWhatsappReminder(invoiceNo, emiDate, phone, waText, btn) {
 async function updateOverdueIndicator() {
     // This is essentially a lighter version of fetchOverdueEmi just for the dot
     try {
-        const sheetId = localStorage.getItem("sheetId");
+        const sheetId = getActiveSheetId();
 
             await loadEmiData();
 
@@ -578,36 +812,45 @@ function filterOverdueEmi() {
 }
 
 function resetInvoiceForm() {
-    cName.value = ""; cPhone.value = ""; cAltPhone.value = ""; cAddr.value = "";
+    cName.value = ""; 
+    cEmail.value = "";   // ✅ ADD THIS LINE
+    cPhone.value = ""; 
+    cAltPhone.value = ""; 
+    cAddr.value = "";
+
     grandInput.value = "";
-    taxVal.innerText = "0.00"; cgstVal.innerText = "0.00"; sgstVal.innerText = "0.00";
+    taxVal.innerText = "0.00"; 
+    cgstVal.innerText = "0.00"; 
+    sgstVal.innerText = "0.00";
+
     document.getElementById("itemsBody").innerHTML = "";
     addItemRow();
+
     payMode.value = "Cash";
     toggleEmiUI();
-    
 }
 
 async function initERP(){
 
-  const sheetId = localStorage.getItem("sheetId");
-  if(!sheetId) return;
+const sheetId = getActiveSheetId();
+if(!sheetId) return;
 
-  // set shop name
-  const shop = localStorage.getItem("shopName");
-  if(shop){
+// set shop name
+const shop = localStorage.getItem("shopName");
+if(shop){
     document.querySelector(".logo").innerText = shop;
-  }
+}
+checkArchivedFY();
+updateFYLockUI();
+showLoader(true);
 
-  showLoader(true);
-
-  try{
+try{
 
     const res = await fetch(`${SCRIPT_URL}?action=nextInvoice&sheetId=${sheetId}&key=${API_KEY}`);
     const data = await res.json();
 
     if(!data.invoiceNo){
-      throw new Error("Invoice not received");
+    throw new Error("Invoice not received");
     }
 
     // ✅ Invoice number
@@ -629,17 +872,17 @@ async function initERP(){
         fetchOverdueEmi()
     ]);
 
-  }catch(e){
+}catch(e){
 
     console.error(e);
     alert("ERP init failed");
 
-  }finally{
+}finally{
 
     // ✅ NOW hide loader (after EVERYTHING ready)
     showLoader(false);
 
-  }
+}
 }
 
 
@@ -649,42 +892,52 @@ async function initERP(){
 // ==========================================
 window.onload = async () => {
 
-  const sheetId = localStorage.getItem("sheetId");
+const sheetId = getActiveSheetId();
 
-  if(!sheetId){
+if(!sheetId){
     document.getElementById("loginScreen").style.display = "flex";
     showLoader(false);
     return;
-  }
+}
 
-  showLoader(true);
+showLoader(true);
 
-  const fd = new FormData();
-  fd.append("action","checkStatus");
-  fd.append("sheetId",sheetId);
-  fd.append("key",API_KEY);
+const fd = new FormData();
+fd.append("action","checkStatus");
+fd.append("sheetId",sheetId);
+fd.append("key",API_KEY);
 
-  const res = await fetch(SCRIPT_URL,{
+const res = await fetch(SCRIPT_URL,{
     method:"POST",
     body:fd
-  });
+});
 
-  const out = await res.json();
+const out = await res.json();
 
-  if(!out.success || out.status === "BLOCK"){
+if(!out.success || out.status === "BLOCK"){
 
     alert("Your shop is blocked. Contact support.");
 
     localStorage.clear();
     location.reload();
     return;
-  }
+}
 
-  document.querySelector(".logo").innerText = out.shopName;
+const logo = document.querySelector(".logo");
 
-  document.getElementById("loginScreen").style.display="none";
+if(logo){
+    logo.innerText = out.shopName;
+}
 
-  initERP();
+if(typeof updateFYBadge === "function"){
+    updateFYBadge();
+}
+
+document.getElementById("loginScreen").style.display="none";
+
+await initERP();
+
+showLoader(false);
 };
 
 
@@ -711,116 +964,125 @@ window.calculateEMI = calculateEMI;
 
 async function loginShop(){
 
-  showLoader(true);
+showLoader(true, "Logging in...");
 
-  const shopId = document.getElementById("loginShopId").value.trim();
-  const phone = document.getElementById("loginPhone").value.trim();
+const shopId = document.getElementById("loginShopId").value.trim();
+const phone = document.getElementById("loginPhone").value.trim();
 
-  if(!shopId || !phone){
+if(!shopId || !phone){
     showLoader(false);
     alert("Enter Shop ID and Phone");
     return;
-  }
+}
 
-  const fd = new FormData();
-  fd.append("action","loginShop");
-  fd.append("data",JSON.stringify({shopId,phone}));
-  fd.append("key", API_KEY);
+const fd = new FormData();
+fd.append("action","loginShop");
+fd.append("data",JSON.stringify({shopId,phone}));
+fd.append("key", API_KEY);
 
-  try{
+try{
 
     const res = await fetch(SCRIPT_URL,{
-      method:"POST",
-      body:fd
+    method:"POST",
+    body:fd
     });
 
     const out = await res.json();
 
     if(!out.success){
-      showLoader(false);
-      alert(out.error);
-      return;
+    showLoader(false);
+    alert(out.error);
+    return;
     }
 
     localStorage.setItem("shopId", out.shopId);
     localStorage.setItem("sheetId", out.sheetId);
+    localStorage.setItem("activeFY", out.activeFY);
+    localStorage.setItem("activeFYSheet", out.sheetId);
     localStorage.setItem("shopName", out.shopName);
 
     document.getElementById("loginScreen").style.display="none";
-    initERP();
+    await initERP();
+
+    showLoader(false);
 
 
-  }catch(e){
+}catch(e){
 
     console.error(e);
+
+    showLoader(false);
+
     alert("Login failed");
 
-  }
 }
+
+}
+
 
 
 function logoutShop(){
-  localStorage.clear();
-  location.reload();
+localStorage.clear();
+location.reload();
 }
 
 document.querySelector(".logo").innerText =
- localStorage.getItem("shopName") || "ERP";
+localStorage.getItem("shopName") || "ERP";
 
 
 function showSignup(){
-  document.getElementById("loginBox").style.display="none";
-  document.getElementById("signupBox").style.display="block";
+document.getElementById("loginBox").style.display="none";
+document.getElementById("signupBox").style.display="block";
 }
 
 function showLogin(){
-  document.getElementById("signupBox").style.display="none";
-  document.getElementById("loginBox").style.display="block";
+document.getElementById("signupBox").style.display="none";
+document.getElementById("loginBox").style.display="block";
 }
 
 async function signupShop(){
 
-  showLoader(true);
+showLoader(true, "Creating Account...");
 
-  const data = {
+const data = {
     shopName: sShop.value.trim(),
     owner: sOwner.value.trim(),
     phone: sPhone.value.trim(),
     address: sAddr.value.trim(),
     gst: sGst.value.trim()
-  };
+};
 
-  if(!data.shopName || !data.owner || !data.phone || !data.address){
+if(!data.shopName || !data.owner || !data.phone || !data.address){
     alert("Fill all required fields");
     showLoader(false);
     return;
-  }
+}
 
-  const fd = new FormData();
-  fd.append("action","registerShop");
-  fd.append("data",JSON.stringify(data));
-  fd.append("key",API_KEY);
+const fd = new FormData();
+fd.append("action","registerShop");
+fd.append("data",JSON.stringify(data));
+fd.append("key",API_KEY);
 
-  try{
+try{
 
     const res = await fetch(SCRIPT_URL,{
-      method:"POST",
-      body:fd
+    method:"POST",
+    body:fd
     });
 
     const out = await res.json();
 
     if(!out.success){
-      alert(out.error);
-      return;
+    alert(out.error);
+    return;
     }
 
     // ✅ Show Shop ID
     alert(
-      "Shop Created Successfully!\n\n" +
-      "Your Shop ID is:\n" +
-      out.shopId +
-      "\n\nPlease save this Shop ID.\nYou will need it to login."
+    "Shop Created Successfully!\n\n" +
+    "Your Shop ID is:\n" +
+    out.shopId +
+    "\n\nPlease save this Shop ID.\nYou will need it to login."
     );
 
     // ✅ Clear signup form
@@ -833,30 +1095,241 @@ async function signupShop(){
     // ✅ Go back to login screen
     showLogin();
 
-  }catch(e){
+}catch(e){
 
     alert("Signup failed");
 
-  }finally{
+}finally{
 
     showLoader(false);
 
-  }
+}
 }
 
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("service-worker.js");
+navigator.serviceWorker.register("service-worker.js");
 }
 
 
 function toggleSidebar(){
-  document.querySelector(".sidebar").classList.toggle("open");
-  document.getElementById("sidebarOverlay").classList.toggle("show");
+document.querySelector(".sidebar").classList.toggle("open");
+document.getElementById("sidebarOverlay").classList.toggle("show");
 }
 
 /* mobile shop name */
 const mShop = document.getElementById("mobileShopName");
 if(mShop){
-  mShop.innerText = localStorage.getItem("shopName") || "VyaparX";
+mShop.innerText = localStorage.getItem("shopName") || "VyaparX";
+}
+
+async function openFYManager(){
+
+    try{
+
+        showLoader(true, "Loading Financial Years...");
+
+        const shopId = localStorage.getItem("shopId");
+
+        const res = await fetch(
+            `${SCRIPT_URL}?action=fyList&shopId=${shopId}&key=${API_KEY}`
+        );
+
+        const data = await res.json();
+
+        const box = document.getElementById("fyListContainer");
+
+        const activeFY = localStorage.getItem("activeFY");
+
+        let html = "";
+
+        const years = Object.keys(data)
+            .sort()
+            .reverse();
+
+        if(!years.length){
+
+            html = `
+            <div style="text-align:center;color:#64748b;">
+                No Financial Years Found
+            </div>`;
+
+        }else{
+
+            years.forEach(fy => {
+
+                const active =
+                    data[fy] === getActiveSheetId();
+
+                html += `
+                <div style="
+                    display:flex;
+                    justify-content:space-between;
+                    align-items:center;
+                    padding:14px;
+                    border:1px solid #e2e8f0;
+                    border-radius:12px;
+                    margin-bottom:10px;
+                    background:${active ? "#eef2ff" : "white"};
+                ">
+
+                    <div>
+                        <div style="
+                            font-weight:700;
+                            font-size:16px;
+                        ">
+                            ${fy}
+                        </div>
+
+                        <div style="
+                            font-size:12px;
+                            color:#64748b;
+                            margin-top:4px;
+                        ">
+                            ${active ? "Currently Active" : "Archive Year"}
+                        </div>
+                    </div>
+
+                    <button
+                        class="btn-main"
+                        style="
+                            padding:8px 14px;
+                            font-size:13px;
+                        "
+                        onclick="switchFY('${fy}','${data[fy]}')">
+
+                        ${active ? "Opened" : "Open"}
+
+                    </button>
+
+                </div>`;
+            });
+        }
+
+        box.innerHTML = html + `
+        <button
+            class="btn-main"
+            style="
+                width:100%;
+                margin-top:10px;
+                background:#0f172a;
+            "
+            onclick="createNewFY()">
+
+            + Create Next Financial Year
+
+        </button>`;
+
+        document
+            .getElementById("fyModal")
+            .classList
+            .remove("hidden");
+
+    }catch(e){
+
+        console.error(e);
+
+        alert("Failed to load FY list");
+
+    }finally{
+
+        showLoader(false);
+    }
+}
+
+function closeFYModal(){
+
+    document
+        .getElementById("fyModal")
+        .classList
+        .add("hidden");
+}
+
+function switchFY(fy, sheetId){
+
+    // 🔴 clear caches
+    EMI_SCHEDULE_CACHE = [];
+    EMI_INVOICES_CACHE = [];
+
+    // 🔴 save FY
+    localStorage.setItem("activeFY", fy);
+
+    localStorage.setItem("activeFYSheet", sheetId);
+
+    closeFYModal();
+
+    updateFYBadge();
+
+    // 🔴 full reload
+    location.reload();
+}
+
+async function createNewFY(){
+
+    if(!confirm(
+        "Create new Financial Year?\n\n" +
+        "A new blank database will be generated."
+    )) return;
+
+    try{
+
+        showLoader(true, "Creating New FY...");
+
+        const shopId =
+            localStorage.getItem("shopId");
+
+        const res = await fetch(
+            `${SCRIPT_URL}?action=createFY&shopId=${shopId}&key=${API_KEY}`
+        );
+
+        const out = await res.json();
+
+        if(!out.success){
+
+            alert(out.error || "FY creation failed");
+
+            return;
+        }
+
+        localStorage.setItem(
+            "activeFY",
+            out.fy
+        );
+
+        localStorage.setItem(
+            "activeFYSheet",
+            out.sheetId
+        );
+
+        alert(
+            "New Financial Year Created:\n\n" +
+            out.fy
+        );
+
+        location.reload();
+
+    }catch(e){
+
+        console.error(e);
+
+        alert("Failed to create FY");
+
+    }finally{
+
+        showLoader(false);
+    }
+}
+
+function updateFYBadge(){
+
+    const fy =
+        localStorage.getItem("activeFY");
+
+    const badge =
+        document.getElementById("activeFYBadge");
+
+    if(!badge) return;
+
+    badge.innerText =
+        fy || "--";
 }
 
