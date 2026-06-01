@@ -44,31 +44,65 @@
     </div>
 
     <div id="loader" class="full-loader hidden">
-
-      <div class="loader">
-        <div class="loader__inner"></div>
-        <div class="loader__orbit">
-          <div class="loader__dot"></div>
-          <div class="loader__dot"></div>
-          <div class="loader__dot"></div>
-          <div class="loader__dot"></div>
+  
+        <div class="premium-loader">
+            <div class="circle">
+            <div class="dot"></div>
+            <div class="outline"></div>
+            </div>
+            <div class="circle">
+            <div class="dot"></div>
+            <div class="outline"></div>
+            </div>
+            <div class="circle">
+            <div class="dot"></div>
+            <div class="outline"></div>
+            </div>
+            <div class="circle">
+            <div class="dot"></div>
+            <div class="outline"></div>
+            </div>
         </div>
-      </div>
 
-      <p style="margin-top:20px;font-weight:600;color:white">Processing…</p>
+            <p id="loaderText" style="margin-top:20px;font-weight:600;color:white">Processing...</p>
 
     </div>
-
     <aside class="sidebar" id="mobileHeader">
+        <div class="brand-wrap">
+
         <div class="logo"></div>
+
+        </div>
+
+        <div class="fy-card">
+
+            <div class="fy-content">
+
+                <div class="fy-label">
+                    FY
+                </div>
+
+                <div
+                    id="activeFYBadge"
+                    class="fy-year">
+
+                    2026-27
+
+                </div>
+
+            </div>
+
+            <div class="fy-status">
+                ACTIVE
+            </div>
+
+        </div>
         <div class="nav-item active" onclick="switchPage('invoice', this)">New Invoice</div>
         <div class="nav-item" onclick="switchPage('history', this)">Invoice History</div>
         <div class="nav-item" onclick="switchPage('emi-records', this)">EMI Records</div>
-        <div class="nav-item" id="overdueNav" onclick="switchPage('overdue-emi', this)">
-            Overdue EMI
-            <span id="overdueDot" class="overdue-dot"></span>
-        </div>
+        <div class="nav-item" id="overdueNav" onclick="switchPage('overdue-emi', this)">Overdue EMI<span id="overdueDot" class="overdue-dot"></span></div>
         <div class="sidebar-footer">
+            <div class="nav-item" onclick="openFYManager()">Financial Years</div>
             <div class="nav-item logout" onclick="logoutShop()">Logout</div>
         </div>
     </aside>
@@ -78,6 +112,9 @@
     <main class="main-content" id="scrollArea">
 
         <div id="page-invoice" class="content-page active">
+            <div id="fyWatermark" class="fy-watermark hidden">
+                <div id="fyWatermarkText"></div>
+            </div>
             <h1>New Invoice</h1><br>
 
             <div class="grid-2">
@@ -176,7 +213,7 @@
             </div>
 
             <div class="bottom-bar">
-                <button class="btn-main" onclick="saveInvoice()">SAVE & GENERATE PDF</button>
+                <button id="saveInvoiceBtn" class="btn-main" onclick="saveInvoice()">SAVE & GENERATE PDF</button>
             </div>
         </div>
 
@@ -323,6 +360,39 @@
         </footer>
 
     </main>
+
+    <div id="fyModal" class="modal-overlay hidden">
+
+        <div class="modal-card" style="max-width:500px;">
+
+            <div class="modal-header">
+
+                <h2>Financial Years</h2>
+
+                <button
+                    onclick="closeFYModal()"
+                    style="
+                        border:none;
+                        background:#f1f5f9;
+                        width:40px;
+                        height:40px;
+                        border-radius:50%;
+                        font-size:20px;
+                        cursor:pointer;
+                    ">
+                    &times;
+                </button>
+
+            </div>
+
+            <div
+                id="fyListContainer"
+                style="padding:15px;">
+            </div>
+
+        </div>
+
+    </div>
 
     <script src="script.js"></script>
 </body>
